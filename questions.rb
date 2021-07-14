@@ -35,6 +35,10 @@ class Question
         question.map {|hash| Question.new(hash)}
     end
 
+    def self.most_followed(n)
+        QuestionFollow.most_followed_questions(n)
+    end
+
 
     def initialize(attributes)
         @id = attributes['id']
@@ -117,7 +121,7 @@ class QuestionFollow
 
     def self.follower_for_question_id(question_id)
         questionfollow = QuestionsDatabase.instance.execute(<<-SQL, question_id)
-        SELECT users.fname, users.lname
+        SELECT users.id, users.fname, users.lname
         FROM users
         JOIN question_follows ON users.id = question_follows.user_id
         WHERE question_follows.question_id = ?
@@ -132,7 +136,19 @@ class QuestionFollow
         JOIN question_follows ON questions.id = question_follows.question_id
         WHERE question_follows.user_id = ?
         SQL
-        followquestion.map { |question| Question.new(question) }
+        followquestions.map { |question| Question.new(question) }
+    end
+
+    def self.most_followed_questions(n)
+        followed_questions = QuestionsDatabase.instance.execute(<<-SQL, n)
+            SELECT questions.id, questions.title, questions.body, questions.user_id
+            FROM question_follows
+            JOIN questions ON questions.id = question_follows.question_id
+            GROUP BY questions.user_id
+            ORDER BY COUNT(*) DESC
+            LIMIT ?
+        SQL
+        followed_questions.map {|question| Question.new(question)}
     end
 
     def initialize(attributes)
@@ -140,7 +156,6 @@ class QuestionFollow
         @question_id = attributes['question_id']
         @user_id = attributes['user_id']
     end
-
 
 end
 
@@ -213,6 +228,15 @@ end
 class QuestionLike
 
     attr_accessor :id, :user_id, :question_id
+
+    def self.likers_for_question_id(question_id)
+        question_likers = QuestionsDatabase.instance.execute(<<-SQL, question_id)
+            SELECT users.id, users.fname, users.lname
+            FROM question_likes
+            JOIN users ON question_likes.user_id = users.id
+            WHERE question_likes.question_id = ?
+        SQL
+    end
 
     def self.find_by_id(id)
         questionlike = QuestionsDatabase.instance.execute(<<-SQL, id)
