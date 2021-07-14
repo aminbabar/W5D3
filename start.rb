@@ -1,1 +1,0 @@
-"start o' day"
